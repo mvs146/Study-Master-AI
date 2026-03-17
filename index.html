@@ -151,7 +151,7 @@ button:active{transform:scale(.97);opacity:.85}
     </div>
     <!-- Chrome redirect button — shown if content:// or file:// detected -->
     <div id="chrome-prompt" style="display:none;background:#EFF6FF;border:2px solid #3B82F6;border-radius:14px;padding:18px;margin-bottom:16px"><div style="font-size:28px;margin-bottom:8px">🔗</div><div style="font-weight:800;color:#1E40AF;font-size:15px;margin-bottom:8px">Open Online Version</div><div style="font-size:12px;color:#1E3A5F;line-height:1.7;margin-bottom:14px">Tap the button below to open StudyMaster AI on GitHub Pages — works perfectly on all devices!</div><a href="https://mvs146.github.io/Study-Master-AI/" style="display:block;padding:14px;background:linear-gradient(135deg,#1E3A5F,#3B82F6,#7C3AED);color:#fff;font-weight:800;font-size:15px;border-radius:30px;text-decoration:none;text-align:center;box-shadow:0 4px 16px rgba(59,130,246,.4);margin-bottom:12px">🚀 Open StudyMaster AI Online</a><div style="background:#fff;border-radius:8px;padding:10px;font-size:11px;color:#64748B;line-height:1.7;text-align:left">Bookmark: <strong>mvs146.github.io/Study-Master-AI</strong><br/>Install PWA: Open link → Chrome ⋮ → Add to Home screen</div></div>
-    <div style="font-size:10px;color:#94A3B8">India's #1 AI Study Platform · Powered by Claude AI</div>
+    <div style="font-size:10px;color:#94A3B8">India's #1 AI Study Platform · Powered by Cloudflare AI</div>
   </div>
 </div>
 <script>
@@ -550,13 +550,8 @@ const APP={
   cardFlipped:{},cardKnown:{},quizAns:{},quizDone:false,
   scanImg:null,scanMime:null,scanText:'',scanMode:'summary',scanBusy:false,voiceOn:false,showBooks:false
 };
-// API key is now stored securely in Cloudflare Worker env secret (ANTHROPIC_API_KEY)
-// Never put a real key here — Anthropic auto-revokes keys found in public GitHub repos
-const EMBEDDED_KEY='';
 function initApp(){
   checkExp();
-  // Don't overwrite a user's manually-entered key with the empty embedded key
-  if(!LS.g('sm_ak',''))LS.s('sm_ak','');
   LS.s('user_plan','student');
   APP.plan=LS.g('user_plan','free');
   APP.dark=LS.g('sm_dark',false);
@@ -1585,9 +1580,9 @@ function renderApiKeyModal(){
     btn({style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',fontSize:16,width:28,height:28,borderRadius:'50%'},onclick:()=>{APP.showApiKey=false;render()}},'✕')));
   const bd=div({class:'modal-body'});
   bd.appendChild(div({style:{background:'#F0FDF4',border:'1.5px solid #86EFAC',borderRadius:9,padding:'14px',marginBottom:14,display:'flex',gap:10,alignItems:'center'},html:`<span style="font-size:28px">✅</span><div><p style="margin:0 0 3px;font-weight:800;font-size:14px;color:#166534">AI Engine Active — No Setup Needed!</p><p style="margin:0;font-size:11px;color:#166534;line-height:1.6">Your StudyMaster AI runs on <strong>Cloudflare Workers AI</strong>.<br/>✅ Completely FREE &nbsp;✅ No API key needed &nbsp;✅ No quota limits &nbsp;✅ Works for all users automatically</p></div>`}));
-  bd.appendChild(div({style:{background:'#EFF6FF',border:'1.5px solid #BFDBFE',borderRadius:9,padding:'12px 14px',marginBottom:12},html:'<p style="margin:0 0 8px;font-weight:700;font-size:12px;color:#1E40AF">⚡ How it works:</p><p style="margin:0;font-size:11px;color:#1E3A5F;line-height:1.8">• You type a topic → app calls your <strong>Cloudflare Worker</strong><br/>• The Worker runs <strong>Llama 3 AI</strong> on Cloudflare's servers<br/>• AI generates your notes, quiz, flashcards etc.<br/>• Result comes back to your screen — all automatic!</p>'}));
+  bd.appendChild(div({style:{background:'#EFF6FF',border:'1.5px solid #BFDBFE',borderRadius:9,padding:'12px 14px',marginBottom:12},html:'<p style="margin:0 0 8px;font-weight:700;font-size:12px;color:#1E40AF">⚡ How it works:</p><p style="margin:0;font-size:11px;color:#1E3A5F;line-height:1.8">• You type a topic → app calls your <strong>Cloudflare Worker</strong><br/>• The Worker runs <strong>Llama 3 AI</strong> on Cloudflare&#39;s servers<br/>• AI generates your notes, quiz, flashcards etc.<br/>• Result comes back to your screen — all automatic!</p>'}));
   bd.appendChild(div({style:{background:'#FFFBEB',border:'1.5px solid #FDE68A',borderRadius:9,padding:'12px 14px',marginBottom:12},html:'<p style="margin:0 0 6px;font-weight:700;font-size:12px;color:#92400E">🔧 If AI stops working:</p><p style="margin:0;font-size:11px;color:#92400E;line-height:1.8">1. Go to <strong>dash.cloudflare.com</strong><br/>2. Workers &amp; Pages → your worker<br/>3. Settings → Bindings → Add AI Binding<br/>4. Variable name: <strong>AI</strong> → Save &amp; Deploy</p>'}));
-  bd.appendChild(div({style:{background:'#F0FDF4',border:'1.5px solid #BBF7D0',borderRadius:8,padding:'9px 12px'},html:'<p style="margin:0;font-size:10px;color:#166534;line-height:1.6">🔐 <strong>Privacy:</strong> No user data is stored. Your topics are processed on Cloudflare's secure servers and never saved. <strong>Developer:</strong> Muppuri Venkata Suresh — Muppuri Chamber</p>'}));
+  bd.appendChild(div({style:{background:'#F0FDF4',border:'1.5px solid #BBF7D0',borderRadius:8,padding:'9px 12px'},html:'<p style="margin:0;font-size:10px;color:#166534;line-height:1.6">🔐 <strong>Privacy:</strong> No user data is stored. Your topics are processed on Cloudflare&#39;s secure servers and never saved. <strong>Developer:</strong> Muppuri Venkata Suresh — Muppuri Chamber</p>'}));
   const closeBtn=btn({style:{width:'100%',padding:'11px',borderRadius:9,background:'linear-gradient(135deg,#1E3A5F,#3B82F6)',color:'#fff',fontWeight:800,fontSize:13,border:'none',marginTop:12},onclick:()=>{APP.showApiKey=false;render()}},'✅ Got it — Start Studying!');
   bd.appendChild(closeBtn);
   m.appendChild(bd);bg.appendChild(m);return bg;
@@ -2230,7 +2225,7 @@ function render(){
     console.error('Render error:',renderErr);
     var app3=document.getElementById('app');
     if(app3){app3.innerHTML='';var ed=document.createElement('div');ed.style.cssText='padding:16px;font-family:system-ui';ed.innerHTML='<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;padding:14px;text-align:center"><p style="color:#DC2626;font-weight:700;margin-bottom:6px">Display Error</p><p style="color:#991B1B;font-size:12px;line-height:1.5">'+renderErr.message+'<br/>Please refresh.</p><button onclick="location.reload()" style="margin-top:10px;padding:8px 20px;background:#3B82F6;color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer">Refresh</button></div>';app3.appendChild(ed);}
-    if(typeof window._bootDone==='function')window._bootDone();
+    if(typeof window._bootDone==='function'){window._bootDone();window._bootDone=null;}
   }
 
   // Signal boot done — hide loading screen
@@ -2430,12 +2425,12 @@ function showMicGuide(){
 try{
   initApp();
   render();
-  // Fallback: force dismiss boot screen after 4s if render() didn't call it
+  // Fallback: force dismiss boot screen after 2s if render() didn't call it
   setTimeout(function(){
     if(typeof window._bootDone==='function'){window._bootDone();window._bootDone=null;}
     var bs=document.getElementById('boot-screen');
     if(bs&&bs.parentNode){bs.style.opacity='0';bs.style.transition='opacity .3s';setTimeout(function(){if(bs.parentNode)bs.parentNode.removeChild(bs);},350);}
-  },4000);
+  },1500);
   // render() itself signals bootDone when complete
 }catch(bootErr){
   console.error('StudyMaster boot error:',bootErr);
@@ -2625,11 +2620,12 @@ window.addEventListener('offline',()=>{
 
 if('serviceWorker' in navigator){
   const swCode=`
-    const CACHE='studymaster-v32';
+    const CACHE='studymaster-v33';
     const SKIP=['razorpay','github.com/login'];
     self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));
     self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
     self.addEventListener('fetch',e=>{
+      if(e.request.url.endsWith('.html')||e.request.url.endsWith('/'))return;
       if(e.request.method!=='GET')return;
       if(SKIP.some(s=>e.request.url.includes(s)))return;
       e.respondWith(
