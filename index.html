@@ -248,16 +248,29 @@ const LS={
   g:(k,d=null)=>{try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d}catch(e){return d}},
   s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
-// ─── API (Anthropic) ──────────────────────────────────────
+// ─── API (Anthropic with key) ────────────────────────────
 const API={
-  call:async(body)=>{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
+  getKey:function(){return LS.g('sm_api_key','')},
+  setKey:function(k){LS.s('sm_api_key',k)},
+  hasKey:function(){return !!(LS.g('sm_api_key',''))},
+  call:async function(body){
+    var key=this.getKey();
+    if(!key){
+      APP.showApiSetup=true;render();
+      throw new Error('API key not set. Please add your Anthropic API key.');
+    }
+    var r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({...body,model:'claude-sonnet-4-20250514',max_tokens:body.max_tokens||2000})
     });
-    const d=await r.json();
-    if(!r.ok||d.error)throw Object.assign(new Error(d.error?.message||'API Error '+r.status),{status:r.status});
+    var d=await r.json();
+    if(!r.ok||d.error)throw Object.assign(new Error(d.error?.message||d.error||'API Error '+r.status),{status:r.status});
     return d;
   }
 };
@@ -445,7 +458,7 @@ allpack:base+'\nCreate complete study pack.\nJSON: {"title":"str","overview":"st
 const APP={
   plan:'free',aiCount:0,topic:'',subject:'biology',mode:'notes',lang:'English',diff:'intermediate',
   inputMode:'topic',paste:'',result:null,loading:false,error:null,loadIdx:0,
-  showSubjDrop:false,showProgress:false,showSaved:false,showReferral:false,showPricing:false,
+  showSubjDrop:false,showProgress:false,showSaved:false,showReferral:false,showPricing:false,showApiSetup:false,
   showTutor:false,showScanner:false,showDict:false,showExamMode:false,showMockExam:false,
   showCurrentAffairs:false,showAICoach:false,showYTSum:false,showAnswerEval:false,
   showDebate:false,showPYQ:false,showRevision:false,showLeaderboard:false,showBadges:false,
@@ -464,9 +477,12 @@ function initApp(){
   const d=LS.g('ai_date','');
   if(d!==new Date().toDateString()){LS.s('ai_count',0);LS.s('ai_date',new Date().toDateString());APP.aiCount=0}
   else APP.aiCount=LS.g('ai_count',0);
-  if(APP.plan==='free'&&!LS.g('sm_vis',false)){
+  if(!API.hasKey()&&!LS.g('api_notice_shown',false)){
+    LS.s('api_notice_shown',true);
+    setTimeout(function(){APP.showApiSetup=true;render()},800);
+  } else if(APP.plan==='free'&&!LS.g('sm_vis',false)){
     LS.s('sm_vis',true);
-    setTimeout(function(){toast('👋 Welcome! Enter a topic and tap Generate.','info',5000)},1500);
+    setTimeout(function(){toast('👋 Welcome! Tap 🔑 Setup AI in the header to connect your API key, then start studying!','info',7000)},1500);
   }
 }
 
@@ -539,6 +555,7 @@ async function generate(){
   if(subj&&!subj.free&&APP.plan==='free'){APP.upgradeFor={reason:subj.l+' requires Student Pro.',plan:'student'};render();return}
   if(!Sec.rate('gen',60)){APP.error='⚠️ Too many requests. Wait 1 minute.';render();return}
   if(!navigator.onLine){toast('📡 No internet!','error',4000);return}
+  if(!API.hasKey()){APP.showApiSetup=true;render();return}
   APP.loading=true;APP.error=null;APP.result=null;APP.tutorMsgs=[];
   APP.cardFlipped={};APP.quizAns={};APP.quizDone=false;APP.loadIdx=0;
   if(window.speechSynthesis)window.speechSynthesis.cancel();
@@ -1011,11 +1028,14 @@ function renderPricingModal(){
     else{pc.appendChild(div({style:{padding:'7px',borderRadius:'8px',background:'#EFF6FF',textAlign:'center',fontSize:'11px',color:'#64748B'}},'Current Plan'))}
     bd.appendChild(pc);
   });
-  var rc=div({style:{border:'1.5px solid #DBEAFE',borderRadius:'10px',padding:'13px'}});
-  rc.appendChild(p({style:{margin:'0 0 8px',fontWeight:'700',fontSize:'11px',color:'#1E3A5F'}},'🎁 Have a Referral Code?'));
-  var rinp=inp({class:'topic-inp',style:{width:'100%',borderRadius:'9px',marginBottom:'7px',fontSize:'12px'},placeholder:'Enter code (e.g. MVS2025, UPSC2025, CHAMBER100)...'});
-  var rb=btn({class:'gen-btn',style:{width:'100%',padding:'9px',fontSize:'12px',borderRadius:'8px'},onclick:function(){var r=applyCode(rinp.value);toast(r.msg,r.ok?'success':'error');if(r.ok){APP.plan=r.plan;APP.showPricing=false;APP.upgradeFor=null;render()}}},'Apply Code');
-  rc.appendChild(rinp);rc.appendChild(rb);bd.appendChild(rc);
+  var rc=div({style:{border:'1.5px solid #DBEAFE',borderRadius:'10px',padding:'13px',background:'#EFF6FF'}});
+  rc.appendChild(p({style:{margin:'0 0 6px',fontWeight:'700',fontSize:'11px',color:'#1E3A5F'}},'📩 Have an Access Code?'));
+  rc.appendChild(p({style:{margin:0,fontSize:'11px',color:'#64748B',lineHeight:'1.6'}},'Contact Muppuri Chamber directly to receive your personal access code. Codes are shared privately via WhatsApp or Email.'));
+  var contactRow=div({style:{display:'flex',gap:'7px',marginTop:'9px',flexWrap:'wrap'}});
+  contactRow.appendChild(btn({style:{padding:'7px 14px',borderRadius:'20px',border:'1px solid #25D366',background:'#F0FDF4',color:'#166534',fontSize:'10px',fontWeight:'700',cursor:'pointer'},onclick:function(){window.open('https://wa.me/message/MUPPURICHAMBER','_blank')}},'📱 WhatsApp'));
+  contactRow.appendChild(btn({style:{padding:'7px 14px',borderRadius:'20px',border:'1px solid #BFDBFE',background:'#EFF6FF',color:'#1E40AF',fontSize:'10px',fontWeight:'700',cursor:'pointer'},onclick:function(){window.location.href='mailto:muppurichamber@gmail.com?subject=StudyMaster AI Access Code Request'}},'📧 Email'));
+  rc.appendChild(contactRow);
+  bd.appendChild(rc);
   m.appendChild(bd);bg.appendChild(m);return bg;
 }
 
@@ -1185,6 +1205,58 @@ function renderDictResult(container,d){
     container.appendChild(me);
   }
 }
+
+// ─── API Key Setup Modal ──────────────────────────────────
+function renderApiSetup(){
+  var bg=div({class:'modal-bg',onclick:function(e){if(e.target===bg){APP.showApiSetup=false;render()}}});
+  var m=div({class:'modal'});
+  var hdr=div({class:'modal-hdr',style:{background:'linear-gradient(135deg,#1E3A5F,#0891B2)'}});
+  hdr.appendChild(div({html:'<p style="margin:0;font-weight:800;font-size:15px;color:#fff">🔑 Connect AI Engine</p><p style="margin:0;font-size:10px;color:rgba(255,255,255,.75)">One-time setup · Your key stored locally · Never sent anywhere except Anthropic</p>'}));
+  hdr.appendChild(btn({class:'modal-close',onclick:function(){APP.showApiSetup=false;render()}},'✕'));
+  m.appendChild(hdr);
+  var bd=div({class:'modal-body'});
+  
+  // Existing key display
+  var existingKey=API.getKey();
+  if(existingKey){
+    var ek=div({style:{padding:'9px 12px',background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:'9px',marginBottom:'12px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}});
+    ek.appendChild(div({html:'<p style="margin:0 0 2px;font-weight:700;font-size:11px;color:#059669">✅ API Key Connected</p><p style="margin:0;font-size:10px;color:#64748B">sk-ant-...'+existingKey.slice(-8)+'</p>'}));
+    ek.appendChild(btn({style:{padding:'4px 10px',borderRadius:'20px',border:'1px solid #FECACA',background:'#FEF2F2',color:'#DC2626',fontSize:'9px',fontWeight:'700',cursor:'pointer'},onclick:function(){API.setKey('');toast('🔑 API key removed','info');render()}},'Remove'));
+    bd.appendChild(ek);
+  }
+
+  // Instructions
+  var steps=div({style:{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'9px',padding:'11px 13px',marginBottom:'12px'}});
+  steps.innerHTML='<p style="margin:0 0 8px;font-weight:700;font-size:11px;color:#1E40AF">📋 How to get your FREE Anthropic API key:</p>'
+    +'<div style="font-size:11px;color:#1E3A5F;line-height:1.8">'
+    +'<b>Step 1:</b> Go to <a href="https://console.anthropic.com" target="_blank" style="color:#3B82F6;font-weight:700">console.anthropic.com</a><br/>'
+    +'<b>Step 2:</b> Sign up free (no credit card for trial)<br/>'
+    +'<b>Step 3:</b> Go to <b>API Keys</b> → click <b>Create Key</b><br/>'
+    +'<b>Step 4:</b> Copy the key (starts with <code>sk-ant-</code>)<br/>'
+    +'<b>Step 5:</b> Paste it below and tap Connect<br/>'
+    +'</div>'
+    +'<p style="margin:8px 0 0;font-size:9px;color:#64748B">✅ Free tier: $5 credit included · 1 million+ words generated · Key stored only in your browser</p>';
+  bd.appendChild(steps);
+
+  // Key input
+  var kinp=inp({class:'topic-inp',style:{width:'100%',borderRadius:'9px',marginBottom:'8px',fontSize:'12px',letterSpacing:'0.05em'},placeholder:'sk-ant-api03-...',type:'password'});
+  if(existingKey)kinp.value=existingKey;
+  var showHide=btn({style:{marginBottom:'8px',padding:'4px 10px',borderRadius:'20px',border:'1px solid #BFDBFE',background:'#EFF6FF',color:'#3B82F6',fontSize:'9px',fontWeight:'600',cursor:'pointer'},onclick:function(){kinp.type=kinp.type==='password'?'text':'password';showHide.textContent=kinp.type==='password'?'👁 Show Key':'🙈 Hide Key'}},'👁 Show Key');
+  var connectBtn=btn({class:'gen-btn',style:{width:'100%',padding:'11px',fontSize:'13px',borderRadius:'9px'},onclick:function(){
+    var k=(kinp.value||'').trim();
+    if(!k){toast('Please enter your API key','warning');return}
+    if(!k.startsWith('sk-ant-')&&!k.startsWith('sk-')){toast('⚠️ Key should start with sk-ant-','warning',4000);return}
+    API.setKey(k);APP.showApiSetup=false;
+    toast('✅ API key connected! Now tap Generate.','success',4000);
+    render();
+  }},'🔌 Connect & Start Using AI');
+  bd.appendChild(kinp);bd.appendChild(showHide);bd.appendChild(connectBtn);
+  
+  // Demo note
+  bd.appendChild(div({style:{marginTop:'12px',padding:'9px 12px',background:'#FFFBEB',border:'1px solid #FDE68A',borderRadius:'8px',fontSize:'10px',color:'#92400E',lineHeight:'1.6'}},'💡 <b>Why is this needed?</b> StudyMaster AI uses Anthropic's Claude AI to generate study content. Your API key lets the app directly call Claude. The key is stored only in your browser and sent only to Anthropic — never to any other server.'));
+  m.appendChild(bd);bg.appendChild(m);return bg;
+}
+
 // ─── MAIN RENDER ──────────────────────────────────────────
 function render(){
   try{
@@ -1198,6 +1270,7 @@ function render(){
   var savedNotes=LS.g('saved_notes',[]);
 
   // ── Modals ────────────────────────────────────────────────
+  if(APP.showApiSetup){root.appendChild(renderApiSetup());return}
   if(APP.showPricing||APP.upgradeFor){root.appendChild(renderPricingModal());return}
 
   // ── Side panels ───────────────────────────────────────────
@@ -1234,10 +1307,11 @@ function render(){
   var nav=div({class:'hdr-nav'});
   var navItems=[
     {ic:'💎',l:'Plans',fn:function(){APP.showPricing=true;render()}},
-    {ic:'🎟️',l:'Code',fn:function(){APP.showReferral=true;render()}},
+    // Referral code button removed — codes shared privately by owner
     {ic:'📊',l:'Progress',fn:function(){APP.showProgress=true;render()}},
     {ic:'📂',l:'Notes ('+savedNotes.length+')',fn:function(){APP.showSaved=true;render()}},
     {ic:dark?'☀️':'🌙',l:dark?'Light':'Dark',fn:function(){APP.dark=!APP.dark;LS.s('sm_dark',APP.dark);render()}},
+    {ic:'🔑',l:API.hasKey()?'AI ✅':'Setup AI',fn:function(){APP.showApiSetup=true;render()}},
     {ic:'🔒',l:'Security',fn:function(){toast('🔒 Secured by HTTPS + input sanitization + rate limiting','info',4000)}}
   ];
   navItems.forEach(function(item){
@@ -1273,7 +1347,16 @@ function render(){
   ctrlRow.appendChild(ds);
   var lr=div({style:{marginLeft:'auto',display:'flex',alignItems:'center',gap:'4px'}});
   lr.appendChild(span({style:{fontSize:'13px'}},langObj.flag));
-  var ls=el('select',{class:'sel',onchange:function(){APP.lang=this.value;if(APP.lang!=='English')toast('🌐 Language: '+APP.lang,'info',2500)}});
+  var ls=el('select',{class:'sel',onchange:function(){
+    APP.lang=this.value;
+    var langName=APP.lang;
+    if(langName!=='English'){
+      toast('🌐 Language set to '+langName+' — Next generation will be in '+langName,'info',3500);
+    }else{
+      toast('🇬🇧 Language set to English','info',2000);
+    }
+    render();
+  }});
   LANGS.forEach(function(l){var o=el('option',{value:l.code},l.flag+' '+l.code);if(l.code===APP.lang)o.selected=true;ls.appendChild(o)});
   lr.appendChild(ls);ctrlRow.appendChild(lr);
   card.appendChild(ctrlRow);
@@ -1338,12 +1421,28 @@ function render(){
   var vRow=div({class:'voice-row'});
   var hasVoice=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
   var vb=btn({class:'v-btn',style:{borderColor:hasVoice?'#3B82F6':'#DBEAFE',background:hasVoice?'#EFF6FF':'#F8FAFF',color:hasVoice?'#1D4ED8':'#94A3B8'},onclick:function(){
-    if(!hasVoice){toast('Voice needs Chrome browser','warning');return}
+    if(!hasVoice){toast('🎤 Voice needs Chrome/Edge browser','warning',4000);return}
+    if(location.protocol!=='https:'&&location.hostname!=='localhost'){toast('🔒 Voice needs HTTPS. Open the GitHub Pages link.','warning',5000);return}
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    var r=new SR();r.lang='en-IN';
-    r.onresult=function(e){APP.topic=e.results[0][0].transcript;render();toast('🎤 Got: '+APP.topic,'success',2000)};
-    r.onerror=function(){toast('Mic error — allow mic in settings','error')};
-    r.start();toast('🎤 Listening...','info',3000);
+    var r=new SR();r.continuous=false;r.interimResults=false;
+    r.lang=APP.lang==='Telugu'?'te-IN':APP.lang==='Hindi'?'hi-IN':APP.lang==='Tamil'?'ta-IN':APP.lang==='Kannada'?'kn-IN':APP.lang==='Malayalam'?'ml-IN':'en-IN';
+    vb.innerHTML='🔴 <span>Listening...</span>';vb.style.borderColor='#DC2626';vb.style.color='#DC2626';
+    r.onresult=function(e){
+      var t=e.results[0][0].transcript;
+      APP.topic=t;
+      var inp=document.querySelector('input.topic-inp');if(inp)inp.value=t;
+      vb.innerHTML='🎤 <span>Voice Search</span>';vb.style.borderColor='#3B82F6';vb.style.color='#1D4ED8';
+      toast('🎤 Got: "'+t+'"','success',2500);
+    };
+    r.onerror=function(e){
+      vb.innerHTML='🎤 <span>Voice Search</span>';vb.style.borderColor='#3B82F6';vb.style.color='#1D4ED8';
+      if(e.error==='not-allowed')toast('🎤 Mic blocked — click 🔒 in address bar → allow Microphone','error',6000);
+      else if(e.error==='no-speech')toast('🎤 No speech detected — try again','warning',3000);
+      else toast('🎤 Mic error: '+e.error,'error',4000);
+    };
+    r.onend=function(){vb.innerHTML='🎤 <span>Voice Search</span>';vb.style.borderColor='#3B82F6';vb.style.color='#1D4ED8'};
+    try{r.start();toast('🎤 Listening... speak your topic','info',3000)}
+    catch(e2){toast('🎤 Could not start mic: '+e2.message,'error',4000)}
   }});vb.innerHTML='🎤 <span>Voice Search</span>';
   vRow.appendChild(vb);
   var rb=btn({class:'v-btn',style:{borderColor:'#059669',background:'#F0FDF4',color:'#065F46'},onclick:function(){
@@ -1549,25 +1648,7 @@ function render(){
     root.appendChild(rc);
   }
 
-  // ── REFERRAL MODAL ────────────────────────────────────────
-  if(APP.showReferral){
-    var rbg=div({class:'modal-bg',onclick:function(e){if(e.target===rbg){APP.showReferral=false;render()}}});
-    var rm2=div({class:'modal'});
-    var rh2=div({class:'modal-hdr',style:{background:'linear-gradient(135deg,#1E3A5F,#7C3AED)'}});
-    rh2.appendChild(div({html:'<p style="margin:0;font-weight:800;font-size:14px;color:#fff">🎟️ Referral Code</p><p style="margin:0;font-size:10px;color:rgba(255,255,255,.7)">Enter your code to unlock free premium access</p>'}));
-    rh2.appendChild(btn({class:'modal-close',onclick:function(){APP.showReferral=false;render()}},'✕'));
-    rm2.appendChild(rh2);
-    var rb2=div({class:'modal-body'});
-    rb2.appendChild(p({style:{margin:'0 0 8px',fontSize:'11px',color:'#64748B',lineHeight:'1.6'}},'Enter your referral/access code below. Codes are given by Muppuri Chamber to verified students and testers.'));
-    var rinp2=inp({class:'topic-inp',style:{width:'100%',borderRadius:'9px',marginBottom:'8px',fontSize:'13px',textTransform:'uppercase'},placeholder:'e.g. MVS2025, UPSC2025, CHAMBER100...'});
-    var rApply=btn({class:'gen-btn',style:{width:'100%',padding:'10px',fontSize:'13px',borderRadius:'9px'},onclick:function(){var r=applyCode(rinp2.value);toast(r.msg,r.ok?'success':'error');if(r.ok){APP.plan=r.plan;APP.showReferral=false;render()}}});rApply.textContent='✅ Apply Code';
-    rb2.appendChild(rinp2);rb2.appendChild(rApply);
-    var codeList=div({style:{marginTop:'12px',padding:'10px',background:'#EFF6FF',borderRadius:'9px',border:'1px solid #BFDBFE'}});
-    codeList.appendChild(p({style:{margin:'0 0 6px',fontWeight:'700',fontSize:'10px',color:'#1E40AF'}},'Available Codes (contact Muppuri Chamber):'));
-    ['MVS2025 — 30 days Pro','UPSC2025 — 30 days Exam','NEET2025 — 30 days Exam','APPSC2025 — 30 days Exam','TSPSC2025 — 30 days Exam','DEMO2025 — 7 days trial'].forEach(function(c){codeList.appendChild(div({style:{fontSize:'10px',color:'#1E3A5F',padding:'2px 0',borderBottom:'1px solid #BFDBFE'}},c))});
-    rb2.appendChild(codeList);
-    rm2.appendChild(rb2);rbg.appendChild(rm2);root.appendChild(rbg);
-  }
+  // Referral modal removed — codes shared privately
 
   // ── FOOTER ────────────────────────────────────────────────
   var footer=div({style:{textAlign:'center',padding:'16px 0 6px',borderTop:'1px solid #BFDBFE',marginTop:'10px'}});
